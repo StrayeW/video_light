@@ -10,10 +10,9 @@ import io.flutter.plugin.common.MethodChannel
 import androidx.annotation.NonNull
 import com.example.video_light.OverlayService
 
-// Tüm metotlar bu sınıfın süslü parantezleri içinde olmalı!
-class MainActivity: FlutterActivity() { 
+class MainActivity: FlutterActivity() {
     private val CHANNEL = "com.example.whatsapp_border_light/overlay"
-    private val REQUEST_CODE_OVERLAY = 1234 
+    private val REQUEST_CODE_OVERLAY = 1234
 
     override fun configureFlutterEngine(@NonNull flutterEngine: FlutterEngine) {
         super.configureFlutterEngine(flutterEngine)
@@ -22,10 +21,27 @@ class MainActivity: FlutterActivity() {
             call, result ->
 
             if (call.method == "startOverlay") {
+                // 1. Flutter'dan gelen verileri (argümanları) alıyoruz
+                // Eğer veri gelmezse varsayılan değerler (?:) kullanılır.
+                val width = call.argument<Double>("width")?.toFloat() ?: 10f
+                val colorLong = call.argument<Long>("color") ?: 0xFFFFFFFF
+                val color = colorLong.toInt() // Flutter renkleri Long gönderir, biz Int'e çeviriyoruz
+
                 if (checkOverlayPermission()) {
                     val overlayIntent = Intent(this, OverlayService::class.java)
-                    startService(overlayIntent)
-                    result.success("Overlay Servisi Başlatıldı.")
+                    
+                    // 2. Bu verileri Servis'e taşıyoruz (putExtra ile)
+                    overlayIntent.putExtra("width", width)
+                    overlayIntent.putExtra("color", color)
+
+                    // Servisi başlat
+                    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                        startForegroundService(overlayIntent)
+                    } else {
+                        startService(overlayIntent)
+                    }
+                    
+                    result.success("Overlay Servisi Başlatıldı. Genişlik: $width, Renk: $color")
                 } else {
                     requestOverlayPermission()
                     result.error("PERMISSION_DENIED", "Overlay izni gerekli. Kullanıcı ayarlara yönlendirildi.", null)
@@ -36,13 +52,10 @@ class MainActivity: FlutterActivity() {
         }
     }
 
-    // ✅ DOĞRU YER: Bu metotlar, MainActivity sınıfının içindedir.
     private fun checkOverlayPermission(): Boolean {
-        // Android M (23) veya üzeri için kontrol
         return Build.VERSION.SDK_INT < Build.VERSION_CODES.M || Settings.canDrawOverlays(this)
     }
 
-    // ✅ DOĞRU YER: Bu metotlar, MainActivity sınıfının içindedir.
     private fun requestOverlayPermission() {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M && !Settings.canDrawOverlays(this)) {
             val intent = Intent(
@@ -52,4 +65,4 @@ class MainActivity: FlutterActivity() {
             startActivityForResult(intent, REQUEST_CODE_OVERLAY)
         }
     }
-} // <-- MainActivity sınıfının kapanışı
+}
